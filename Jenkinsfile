@@ -2,7 +2,8 @@ pipeline {
   agent any
 
   environment {
-    DOCKERHUB_USER = "DockerHub username"
+    DOCKERHUB_USER = "rajkansal"
+    IMAGE_NAME = "backend-app"
   }
 
   stages {
@@ -13,13 +14,13 @@ pipeline {
       }
     }
 
-    stage('Build') {
+    stage('Build Docker Images') {
       steps {
         sh 'docker compose build'
       }
     }
 
-    stage('Login') {
+    stage('Docker Login') {
       steps {
         withCredentials([usernamePassword(
           credentialsId: 'dockerhub',
@@ -31,34 +32,50 @@ pipeline {
       }
     }
 
-    stage('Push') {
+    stage('Tag & Push Image') {
       steps {
         sh '''
-        docker tag docker-compose1-backend $DOCKERHUB_USER/backend-app:latest
-        docker push $DOCKERHUB_USER/backend-app:latest
+        docker tag docker-compose1_backend $DOCKERHUB_USER/$IMAGE_NAME:latest
+        docker push $DOCKERHUB_USER/$IMAGE_NAME:latest
         '''
       }
     }
+
     stage('Deploy Green') {
       steps {
         sh 'docker compose up -d backend-green'
-    }
+      }
     }
 
-    stage('Health Check') {
+    stage('Health Check Green') {
       steps {
         sh 'curl -f http://localhost:5001/health'
-    }
+      }
     }
 
-    stage('Switch') {
+    stage('Switch Traffic') {
       steps {
         sh '''
-            docker stop backend-blue || true
-            docker rename backend-green backend-blue
+        docker compose stop backend-blue || true
+        docker compose up -d backend-green
         '''
-        }
+      }
     }
 
+    stage('Deploy to Kubernetes') {
+      steps {
+        sh '''
+        kubectl apply -f backend-deployment.yaml
+        kubectl rollout status deployment/backend
+        '''
+      }
+    }
+  }
+
+  post {
+    failure {
+      echo "❌ Deployment failed — rolling back"
+      sh 'kubectl rollout undo deployment/backend || true'
+    }
   }
 }
