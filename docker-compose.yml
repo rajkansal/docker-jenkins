@@ -17,6 +17,17 @@ services:
       interval: 10s
       retries: 3
 
+  backend-blue:
+    image: youruser/backend-app:latest
+    ports:
+      - "5000:5000"
+
+  backend-green:
+    image: youruser/backend-app:latest
+    ports:
+      - "5001:5000"
+
+
   jenkins:
     image: jenkins/jenkins:lts
     user: root

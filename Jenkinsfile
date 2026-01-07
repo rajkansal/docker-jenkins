@@ -39,5 +39,26 @@ pipeline {
         '''
       }
     }
+    stage('Deploy Green') {
+      steps {
+        sh 'docker compose up -d backend-green'
+    }
+    }
+
+    stage('Health Check') {
+      steps {
+        sh 'curl -f http://localhost:5001/health'
+    }
+    }
+
+    stage('Switch') {
+      steps {
+        sh '''
+            docker stop backend-blue || true
+            docker rename backend-green backend-blue
+        '''
+        }
+    }
+
   }
 }
