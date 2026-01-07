@@ -1,28 +1,42 @@
 pipeline {
   agent any
 
+  environment {
+    DOCKERHUB_USER = "DockerHub username"
+  }
+
   stages {
+
     stage('Checkout') {
       steps {
         checkout scm
       }
     }
 
-    stage('Build Images') {
+    stage('Build') {
       steps {
         sh 'docker compose build'
       }
     }
 
-    stage('Deploy Application') {
+    stage('Login') {
       steps {
-        sh 'docker compose up -d'
+        withCredentials([usernamePassword(
+          credentialsId: 'dockerhub',
+          usernameVariable: 'USER',
+          passwordVariable: 'PASS'
+        )]) {
+          sh 'echo $PASS | docker login -u $USER --password-stdin'
+        }
       }
     }
 
-    stage('Health Check') {
+    stage('Push') {
       steps {
-        sh 'curl -f http://localhost/app'
+        sh '''
+        docker tag docker-compose1-backend $DOCKERHUB_USER/backend-app:latest
+        docker push $DOCKERHUB_USER/backend-app:latest
+        '''
       }
     }
   }
